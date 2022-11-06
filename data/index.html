@@ -166,7 +166,7 @@
     */
     .left.collapsed {
     transform: translateX(-295px);
-    }
+    } 
      
     .right.collapsed {
     transform: translateX(295px);
@@ -191,7 +191,7 @@
           </div>
 
 
-        <div id="left" class="sidebar flex-center left collapsed">
+        <!-- <div id="left" class="sidebar flex-center left collapsed">
             <div class="sidebar-content rounded-rect flex-center">
             
             <div
@@ -202,51 +202,31 @@
             </div>
 
             </div>
-        </div>
+        </div>  -->
 
 
         <div id="right" class="sidebar flex-center right collapsed">
             <div class="sidebar-content rounded-rect flex-center">
            
     <nav id="listing-group" class="listing-group">
-      <input type="checkbox" id="sougou_kikendo" checked="checked" />
-      <label for="sougou_kikendo">総合危険度ランク</label>
-      <input type="checkbox" id="toukai_kikendo" />
-      <label for="toukai_kikendo">建物倒壊危険度ランク</label>
-    
-      <input type="checkbox" id="kasai_kikendo"  />
-      <label for="kasai_kikendo">火災危険度ランク</label>
-
-      <input type="checkbox" id="jiban"  />
-      <label for="jiban">地盤分類</label>
-
+      <input type="checkbox" id="land_type" checked="checked" />
+      <label for="land_type">筆ポリゴン</label>
     </nav>
 
     <table>
 
     <tr><td>
-     <div id="rank">
-      <h5>危険度ランク</h5>
-     
-     <br>
-    <img src="./data/rank.png"  width="250">
-    </div>
-    </td></tr>
-
-    <tr><td>
-
-    <div id="jiban">
-      <h5>地盤分類</h5>
+    <div id="land_class">
+      <h5>筆ポリゴン凡例</h5>
       <br>
-    <img src="./data/jibanlegend.png"  width="250">
+    <img src="./jibanlegend.png"  width="250">
     </div>
   </td></tr>
 
   <tr><td>
     <br><br>
   <div id="elink">
- 詳しくは<a href=" https://www.toshiseibi.metro.tokyo.lg.jp/bosai/chousa_6/home.htm" target="_other">地震に関する地域危険度測定調査(東京都)</a>を参照してください。
- <br>参考<a href="https://www.toshiseibi.metro.tokyo.lg.jp/bosai/chousa_6/download/mikata.pdf">地域危険度一覧表の見方</a>
+筆ポリゴンの詳細は<a href="https://www.maff.go.jp/j/tokei/porigon/index.html" target="_other">農地の区画情報（筆ポリゴン）のデータ提供・利用</a>を参照してください。
  </div>
 </td>
     </table>
@@ -307,12 +287,12 @@ function toggleSidebar(id) {
     elem.className = classes.join(' ');
     }
 
-
+    // set center of map
     var map = new maplibregl.Map({
             container: "map",
             style: './skeleton.json',
-            center: [139.581367, 35.695671],
-            zoom: 11,
+            center: [140.116389102, 36.071126856],
+            zoom: 15,
             maxZoom: 18,
         });
 
@@ -362,7 +342,7 @@ loadfgb();
 async function loadfgb(){
 
 
-        const response = await fetch("./data/tokyorisk5.fgb")
+        const response = await fetch("./fude_tsukuba.fgb")
         map.on("load", async () => {
 
                   
@@ -397,32 +377,36 @@ async function loadfgb(){
             for await (const f of flatgeobuf.deserialize(response.body))
                 fc.features.push(f);
 
-            map.addSource("tokyorisk", {
+            map.addSource("fude_tsukuba", {
                type: "geojson",
                data: fc,
                'attribution':
-               '東京都',
+               '農林水産省',
   
             });
             map.addLayer({
-                id: "sougou_kikendo",
+                id: "land_type",
                 type: "fill",
-                source: "tokyorisk",
+                source: "fude_tsukuba",
                 paint: {
 
                   "fill-color": {
-                    property: "総合危険度_ランク",
+                    property: "land_type",
                     type: 'categorical',
                     stops: [
-                               [1, '#95d3e8'],
-                               [2, '#70ac70'],
+                               [100, '#ffff00'],
+                               [200, '#8b4513'],
                                [3, '#da8312'],
                                [4, '#e92b14'],
                                [5, '#590b10'],
                            ]
-                  },
-                  
-               
+                      },
+                    "fill-outline-color": {
+                    stops: [
+                              [100,"rgba(0, 0, 0, 0.5)"],
+                              [200,"rgba(0, 0, 0, 0.5)"],
+                            ]
+                      },
                  
                   "fill-opacity": 0.6,
                 },
@@ -430,104 +414,6 @@ async function loadfgb(){
                           visibility: 'visible'
                   },
             });
-            map.addLayer({
-                id: "toukai_kikendo",
-                type: "fill",
-                source: "tokyorisk",
-                paint: {
-
-                  "fill-color": {
-                    property: "建物倒壊危険度_ランク",
-                    type: 'categorical',
-                    stops: [
-                               [1, '#95d3e8'],
-                               [2, '#70ac70'],
-                               [3, '#da8312'],
-                               [4, '#e92b14'],
-                               [5, '#590b10'],
-                           ]
-                  },
-  
-                  
-                 
-                  "fill-opacity": 0.6,
-                },
-                layout: {
-                          visibility: 'none'
-                  },
-            });
-
-            map.addLayer({
-                id: "kasai_kikendo",
-                type: "fill",
-                source: "tokyorisk",
-                paint: {
-
-                  "fill-color": {
-                    property: "火災危険度_ランク",
-                    type: 'categorical',
-                    stops: [
-                               [1, '#95d3e8'],
-                               [2, '#70ac70'],
-                               [3, '#da8312'],
-                               [4, '#e92b14'],
-                               [5, '#590b10'],
-                           ]
-                  },
-             
-                  
-                 
-                  "fill-opacity": 0.6,
-                },
-                layout: {
-                          visibility: 'none'
-                  },  
-            });
-
-            map.addLayer({
-                id: "jiban",
-                type: "fill",
-                source: "tokyorisk",
-                paint: {
-
-                  "fill-color": {
-                    property: "地盤分類",
-                    type: 'categorical',
-                    stops: [
-                               ["沖積低地1", '#755fa9'],
-                               ["沖積低地2", '#abd15a'],
-                               ["沖積低地3", '#f0f194'],
-                               ["沖積低地4", '#f9c696'],
-                               ["沖積低地5", '#f69782'],
-                               ["丘陵", '#4e4f29'],
-                               ["山地", '#f79c5b'],
-                               ["台地1", '#5181c1'],
-                               ["台地2", '#328042'],
-                               ["谷底低地1", '#9dd9dd'],
-                               ["谷底低地2", '#bba4cf'],
-                               ["谷底低地3", '#ee65a7'],
-                           ]
-                  },
-             
-                  
-                 
-                  "fill-opacity": 0.6,
-                },
-                layout: {
-                          visibility: 'none'
-                  },  
-            });
-            map.addLayer({
-                id: "risk-line",
-                type: "line",
-                source: "tokyorisk",
-                paint: {
-                  "line-color": "#888888",
-                  "line-opacity": 0.9,
-                  "line-width": 1,
-                },
-            });
-        
         });
 }
 
@@ -535,7 +421,7 @@ async function loadfgb(){
         
 // When a click event occurs on a feature in the places layer, open a popup at the
 // location of the feature, with description HTML from its properties.
-map.on('click', 'sougou_kikendo', function (e) {
+map.on('click', 'land_type', function (e) {
 //var coordinates = e.features[0].geometry.coordinates.slice();
 console.log('A click event has occurred at ' + e.lngLat);
 
