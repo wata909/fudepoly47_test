@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/json-formatter-js"></script>
 
     <style>
-        #map { height: 900px; }
+        #map { height: 90%; }
     </style>
 </head>
 <body>
@@ -17,7 +17,7 @@
         document.addEventListener("DOMContentLoaded", async () => { 
             // basic OSM Leaflet map
             let map = L.map('map').setView([36.0274, 140.1104], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
                 maxZoom: 18,
                 minZoom: 7,
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
