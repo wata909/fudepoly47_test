@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="/examples/site.css" />
-    <link href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
     <script src="https://unpkg.com/underscore@1.13.1/underscore-min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://unpkg.com/flatgeobuf@3.22.0/dist/flatgeobuf-geojson.min.js"></script>
     <script src="https://unpkg.com/json-formatter-js"></script>
 
@@ -15,196 +13,150 @@
 </head>
 <body>
     <ul class="primary-navigation">
-        <li>
-            <a href="/examples/leaflet/">Leaflet Example</a>
-        </li>
-        <li>
-            <a href="/examples/openlayers/">OpenLayers Example</a>
-        </li>
         <li class="active">
-            MapLibre Example
+            Leaflet Example
+        </li>
+        <li>
+            <a href="/examples/openlayers/large.html">OpenLayers Example</a>
+        </li>
+        <li>
+            <a href="/examples/maplibre/">MapLibre Example</a>
         </li>
     </ul>
     <ul class="secondary-navigation">
-        <li><a href="/examples/maplibre/">Basic Example</a></li>
-        <li class="active">Filter By Rect</li>
-        <li><a href="/examples/maplibre/large.html">Filtering a Large Dataset</a></li>
+        <li><a href="/examples/leaflet/">Basic Example</a></li>
+        <li><a href="/examples/leaflet/filtered.html">Filter By Rect</a></li>
+        <li class="active">Filtering a Large Dataset</li>
     </ul>
 
     <div id="map"></div>
     <script>
-        document.addEventListener("DOMContentLoaded", async () => {
-            // basic MapLibre map
-            const map = new maplibregl.Map({
-                container: "map",
-                style: "https://demotiles.maplibre.org/style.json",
-                center: [140.0766, 36.0834],
-                zoom: 12,
+        document.addEventListener("DOMContentLoaded", async () => { 
+            // basic OSM Leaflet map
+            let map = L.map('map').setView([40.766, -73.98], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 18,
-            });
+                minZoom: 12,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
 
             // optionally show some meta-data about the FGB file
             function handleHeaderMeta(headerMeta) {
-                const header = document.getElementById("header")
+                const header = document.getElementById('header')
                 const formatter = new JSONFormatter(headerMeta, 10)
+                while (header.firstChild)
+                    header.removeChild(header.firstChild)
                 header.appendChild(formatter.render())
+            }
+
+            // For the example, we fix a visible Rect in the middle of the map
+            function getBoundForRect() {
+                const bounds = map.getBounds();
+
+                const width = map.distance(bounds.getNorthWest(), bounds.getNorthEast());
+                const height = map.distance(bounds.getNorthWest(), bounds.getSouthWest());
+                return map.getCenter().toBounds(Math.min(width, height) * 0.8);
             }
 
             // convert the rect into the format flatgeobuf expects
             function fgBoundingBox() {
-                const { lng, lat } = map.getCenter();
-                const size = 4;
-                return { minX: lng-size, minY: lat-size, maxX: lng+size, maxY: lat+size };
-            }
-
-            function getRect() {
-                const bbox = fgBoundingBox();
-                const coords = [[
-                    [bbox.minX, bbox.minY],
-                    [bbox.maxX, bbox.minY],
-                    [bbox.maxX, bbox.maxY],
-                    [bbox.minX, bbox.maxY],
-                    [bbox.minX, bbox.minY],
-                ]];
+                const bounds = getBoundForRect();
                 return {
-                    type: "FeatureCollection",
-                    features: [{
-                        type: "Feature",
-                        geometry: { type: "Polygon", coordinates: coords }
-                    }]
-                }
+                    minX: bounds.getWest(),
+                    maxX: bounds.getEast(),
+                    minY: bounds.getSouth(),
+                    maxY: bounds.getNorth(),
+                };
             }
 
+            // show a leaflet rect corresponding to our bounding box
+            let rectangle = L.rectangle(getBoundForRect(), { interactive: false, color: "blue", fillOpacity: 0.0, opacity: 1.0 }).addTo(map);
+
+            // track the previous results so we can remove them when adding new results
+            let previousResults = L.layerGroup().addTo(map);
             async function updateResults() {
-                let i = 0;
-                const fc = {type: "FeatureCollection", features: []};
-                let iter = flatgeobuf.deserialize("./fude_tsukuba.fgb", fgBoundingBox(), handleHeaderMeta);
-                for await (let feature of iter) {
-                    fc.features.push({...feature, id: i});
-                    i += 1;
-                }
-                map.getSource("counties").setData(fc);
-            }
+                // remove the old results
+                previousResults.remove();
+                const nextResults = L.layerGroup().addTo(map);
+                previousResults = nextResults;
 
-            map.on("load", () => {
-                map.addSource("counties", {
-                    type: "geojson",
-                    data: {type: "FeatureCollection", features: []},
-                });
-                map.addLayer({
-                    id: "counties-fill",
-                    type: "fill",
-                    source: "counties",
-                    paint: {
-                        "fill-color": "#0000FF",
-                        "fill-opacity": [
-                            "case",
-                            ["boolean", ["feature-state", "hover"], false],
-                            1,
-                            0.5
-                        ],
-                    },
-                });
-                map.addLayer({
-                    id: "counties-line",
-                    type: "line",
-                    source: "counties",
-                    paint: {
-                      "line-color": "#0000FF",
-                      "line-opacity": 0.9,
-                      "line-width": 2,
-                    },
+                // Use flatgeobuf JavaScript API to iterate features as geojson.
+                // Because we specify a bounding box, flatgeobuf will only fetch the relevant subset of data,
+                // rather than the entire file.
+                const iter = flatgeobuf.deserialize('https://flatgeobuf.septima.dk/population_areas.fgb', fgBoundingBox(), handleHeaderMeta);
+
+                const colorScale = ((d) => {
+                    return d > 750 ? '#800026' :
+                        d > 500 ? '#BD0026' :
+                        d > 250  ? '#E31A1C' :
+                        d > 100 ? '#FC4E2A' :
+                        d > 50   ? '#FD8D3C' :
+                        d > 25  ? '#FEB24C' :
+                        d > 10   ? '#FED976' :
+                        '#FFEDA0'
                 });
 
-                map.addSource("rectangle", {
-                    type: "geojson",
-                    data: {type: "FeatureCollection", features: []},
-                });
-                map.addLayer({
-                    id: "rectangle",
-                    type: "fill",
-                    source: "rectangle",
-                    paint: {
-                        "fill-color": "#FFFF00",
-                        "fill-opacity": 0.7,
-                    },
-                });
-
-                // from https://docs.mapbox.com/mapbox-gl-js/example/popup-on-click/
-                map.on("click", "counties-fill", (e) => {
-                    const props = e.features[0].properties;
-                    const html = `<h1>${props.NAME} ${props.LSAD}, ${props.STATE}</h1>`;
-                    new maplibregl.Popup()
-                        .setLngLat(e.lngLat)
-                        .setHTML(html)
-                        .addTo(map);
-                });
-
-                let hoveredStateId = null;
-                map.on("mousemove", "counties-fill", (e) => {
-                    if (e.features.length > 0) {
-                        if (hoveredStateId !== null) {
-                            map.setFeatureState(
-                                { source: "counties", id: hoveredStateId },
-                                { hover: false }
-                            );
+                for await (const feature of iter) {
+                    // Leaflet styling
+                    const defaultStyle = { 
+                        color: colorScale(feature.properties["population"]), 
+                        weight: 1, 
+                        fillOpacity: 0.4,
+                    };
+                    L.geoJSON(feature, {
+                        style: defaultStyle,
+                    }).on({
+                        'mouseover': function(e) {
+                            const layer = e.target;
+                            layer.setStyle({
+                                weight: 4,
+                                fillOpacity: 0.8,
+                            });
+                        },
+                        'mouseout': function(e) {
+                            const layer = e.target;
+                            layer.setStyle(defaultStyle);
                         }
-                        hoveredStateId = e.features[0].id;
-                        map.setFeatureState(
-                            { source: "counties", id: hoveredStateId },
-                            { hover: true }
-                        );
-                    }
-                });
-                map.on("mouseenter", "counties-fill", () => {
-                    map.getCanvas().style.cursor = "pointer";
-                });
+                   }).bindPopup(`${feature.properties["population"]} people live in this census block.</h1>`)
+                   .addTo(nextResults);
+                }
+                rectangle.bringToFront();
+            }
+            // if the user is panning around alot, only update once per second max
+            updateResults = _.throttle(updateResults, 1000);
 
-                map.on("mouseleave", "counties-fill", () => {
-                    map.getCanvas().style.cursor = "";
-                    if (hoveredStateId !== null) {
-                        map.setFeatureState(
-                            { source: "counties", id: hoveredStateId },
-                            { hover: false }
-                        );
-                    }
-                    hoveredStateId = null;
-                });
-
-                // if the user is panning around alot, only update once per second max
-                updateResults = _.throttle(updateResults, 1000);
-
-                // show a rectangle corresponding to our bounding box
-                map.getSource("rectangle").setData(getRect());
-
-                // show results based on the initial map
+            // show results based on the initial map
+            updateResults();
+            // ...and update the results whenever the map moves
+            map.on("moveend", function(s){
+                rectangle.setBounds(getBoundForRect());
                 updateResults();
-
-                // ...and update the results whenever the map moves
-                map.on("moveend", function(s){
-                    map.getSource("rectangle").setData(getRect());
-                    updateResults();
-                });
             });
         });
     </script>
     <p>
-        FlatGeobuf's spatial index allows you to fetch the features that
-        intersect a given bounding box, without downloading the entire file.
-        This can be helpful when you have a very large file but are only
-        interested in a small portion of it, and want to keep your page loads
-        small and fast.
+        This is a map of every census block in the USA, including its
+        population. The entire file is over 12GB, but FlatGeobuf fetches only
+        the tiny subset of data that intersects with the bounding box (drawn
+        in yellow). Pan the map to move the query's bounding box.
     </p>
     <p>
-        For the purposes of the example we've highlighted our bounding box in
-        yellow. Pan the map to move the query's bounding box.
+        When you have feature data that cover a large area in fine-grained
+        detail like this, the typical options are to either manually slice up
+        your file into manageable regions or to rely on running an application
+        server which does this slicing dynamically.
     </p>
     <p>
-        Open your developer console's network pane, and inspect the network
-        traffic. Compared to the <a href="/examples/maplibre/">example which loads the entire file</a>,
-        you'll see that this example makes more requests for the .fgb file, but
-        they are much smaller because we fetch only the relevant sections of
-        the file.
+        Hosting an application has initial complexity and ongoing maintenance
+        costs. Slicing files can be tedious and inevitiably you might be
+        interested in an area on the boundary of slices.
+    </p>
+    <p>
+        For these cases, consider instead using a single indexed FlatGeobuf.
+        Because FlatGeobuf's spatial index allows you to fetch only the data
+        you're interested in, you can keep your page size down while avoiding
+        the tedium of slicing up files manually, or building and maintaining an
+        application server.
     </p>
     <div id="header">
         <h3>Parsed header content</h3>
