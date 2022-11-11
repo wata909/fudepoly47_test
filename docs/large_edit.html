@@ -96,7 +96,9 @@
                                 const layer = e.target;
                                 layer.setStyle(defaultStyle);
                             }
-                       }).bindPopup(`土地利用：${feature.properties["land_type"]}`)
+                       }).bindPopup(`筆ポリゴンID：${feature.properties["polygon_uuid"]}、<br />
+                                     地目：${feature.properties["land_type"]}、<br />
+                                     市町村コード：${feature.properties["local_government_cd"]}、<br />`)
                        .addTo(nextResults);
                     }
                     rectangle.bringToFront();
