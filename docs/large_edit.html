@@ -70,9 +70,8 @@
                     const iter = flatgeobuf.deserialize('./fude_tsukuba.fgb', fgBoundingBox(), handleHeaderMeta);
     
                     const colorScale = ((d) => {
-                        return d > 200  ? '#ff0000' :
-                            d > 100 ? '#00FF00' :
-                            d > 50   ? '#0000FF' :
+                        return d > 199  ? '#8b4513' :
+                            d > 99 ? '#FFFF00' :
                             '#000000'
                     });
     
